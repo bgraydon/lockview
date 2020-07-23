@@ -1,5 +1,5 @@
 # Lockview
-A small JS library to generate parametric SVG images of locks and keys, animate them and integrate onto web pages.  Released as a supporting tool for my DEF CON 28 talk on key space hacking.
+A small JS library to generate parametric SVG images of locks and keys, animate them and integrate onto web pages.  Released as a supporting tool for my DEF CON 28 talk on key space hacking: https://defcon.org/html/defcon-safemode/dc-safemode-speakers.html#Graydon. 
 
 # Beta
 The version currently released is very rough around the edges.  I'm primarily using it to aid in my DEF CON presentation at the moment.  Polishes to come after DEF CON.
@@ -44,7 +44,10 @@ To add a lock to a webpage, create a container div or other HTML element with so
 And _after the page has loaded_ call the `lockview.addLock` function:
 
 ```
-lockview.addLock('lock0', lockview.schlageLockspec, lockview.defaultViewOpts, 
+lockview.addLock(
+  'lock0', // HTML Container element ID
+  lockview.schlageLockspec, // Information about the lock dimensions
+  lockview.defaultViewOpts, // What controls should be visible, styling, etc
   [2,4,5,3,1], // Key Code
   [[2],[4],[5],[3],[1]], // Shear lines 
   "KEY" // Text stamped on the bow of the key
