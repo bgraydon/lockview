@@ -11,27 +11,27 @@ Example source code is in the /examples folder.  Live examples are online:
 
 ### Standard non-mastered system:
 
-https://ggrsecurity.com/personal/~bgraydon/examples/schlage-nonmastered.html
+https://ggrsecurity.com/personal/~bgraydon/lockview/examples/schlage-nonmastered.html
 
 ### Mastered system:
 
-https://ggrsecurity.com/personal/~bgraydon/examples/schlage-mastered.html
+https://ggrsecurity.com/personal/~bgraydon/lockview/examples/schlage-mastered.html
 
 ### Interchangeable Core:
 
-https://ggrsecurity.com/personal/~bgraydon/examples/ic.html
+https://ggrsecurity.com/personal/~bgraydon/lockview/examples/ic.html
 
 ### Construction Keyed Lock:
 
-https://ggrsecurity.com/personal/~bgraydon/examples/construction.html
+https://ggrsecurity.com/personal/~bgraydon/lockview/examples/construction.html
 
 ### Bump Key (note - inertial physics not simulated):
 
-https://ggrsecurity.com/personal/~bgraydon/examples/bumpkey.html
+https://ggrsecurity.com/personal/~bgraydon/lockview/examples/bumpkey.html
 
 ### Lock Impressioning Minigame:
 
-https://ggrsecurity.com/personal/~bgraydon/examples/impression.html
+https://ggrsecurity.com/personal/~bgraydon/lockview/examples/impression.html
 
 # Using the Library
 Lockview is a javascript library that allows interactive images of locks and keys to be incorporated into any web page.  It requires SVG.js: https://svgjs.com/docs/3.0/
