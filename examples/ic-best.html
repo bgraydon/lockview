@@ -1,0 +1,29 @@
+<html>
+<head>
+<script src="svg.min.js"></script>
+<script src="../lockview.js"></script>
+<script>
+function createLocks() {
+	viewOpts = lockview.defaultViewOpts.amend({
+			keyBank: [
+				{code: [3,7,9,5,7,5,1], stamp: "CNTRL", name: "Core Remove Key"},
+				{code: [1,3,7,7,9,7,9], stamp: "KEY", name: "Operating Key"}
+			]
+		});
+
+	l0 = lockview.addLock(
+		'lock0', 
+		lockview.bestA2Lockspec.amend({
+			icCollar: lockview.bestA2Lockspec.icCollar.amend({present: true})
+		}), 
+		viewOpts, 
+		[1,3,7,7,9,7,9], 
+		[[1,13],[3,17],[7,19],[7,15],[9,17],[7,15],[9,11]], 
+		"KEY");
+}
+</script>
+</head>
+<body onload="createLocks();">
+<div id='lock0'></div>
+</body>
+</html>

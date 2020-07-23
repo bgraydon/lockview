@@ -3,6 +3,14 @@ lockview = {}
 lockview.shallowcopy_change_vals = function(object,newvals) {
 	return Object.fromEntries(Object.entries(object).concat(Object.entries(newvals)))
 }
+lockview.negArray = function(pos, neg) {
+	ret = pos.concat();
+	for(i in neg) {
+		ret[-1-i] = neg[i];
+	}
+	return ret;
+}
+
 
 lockview.schlageLockspec = {
 	unit: 'thou',
@@ -13,6 +21,7 @@ lockview.schlageLockspec = {
 	numDepths: 10,
 	depths: [335,320,305,290,275,260,245,230,215,200,0,0,0,0],
 	spaces: [231,387,543,699,855,1011,0,0,0,0,0,0,0,0],
+	depthIndexOffset: 0,
 	cutterWheel: {
 		foreAngle: 45,
 		aftAngle: 45,
@@ -30,7 +39,7 @@ lockview.schlageLockspec = {
 	housingPinStackLength: 400,
 	springSVG: "m 0,0 c 0.606385,-4.21073 4.834594,-4.54482 4.834594,0.98573 0,3.0346 -1.960633,3.03671 -1.960633,-0.0408 0,-5.48975 4.830256,-5.50645 4.830256,-0.0278 0,3.10738 -1.937857,3.12408 -1.937857,0.0574 0,-5.51935 4.824853,-5.53605 4.824853,-0.0305 0,3.08048 -1.9472,3.09759 -1.9472,0.01 0,-5.49855 4.926,-5.49855 4.926,0.0202 0,3.06728 -1.94725,3.06728 -1.94725,-0.0236 0,-5.49515 4.17528,-5.16106 2.39413,1.84985",
 	keywayHeight: 335,
-	keyBlankLength: 1060,
+	keywayLength: 1060,
 	totalLockHeight: 1100,
 	totalLockLength: 1300,
 	housingBelowKeywayThickness: 100,
@@ -42,7 +51,9 @@ lockview.schlageLockspec = {
 	keyShoulderHeadSVG: " v 30 h -90 a 400 400 0 1 1 0 -445 h 90 z m -530 143.5 a 100 100 0 1 0 -200 0 a 100 100 0 1 0 200 0",
 	icCollar: {
 		present: false,
-		pins: [2,3], // Zero-indexed! 
+		extendedPin: false,
+		extendedPinAcceptableDepths: [8],
+		pins: [], // Zero-indexed! 
 		depth: 3,
 		amend: function(params){return lockview.shallowcopy_change_vals(this,params);}
 	},
@@ -54,10 +65,12 @@ lockview.medecoLockspec = lockview.schlageLockspec.amend({
 	pinTipRadius: 3,
 	numPins: 6,
 	numDepths: 6,
-	depths: [0,272,247,222,197,172,142],
+	depths: [0,272,247,222,197,172,147,122,97,72],
 	spaces: [213,383,553,723,893,1063],
+	pinRestHeight: 147,
+	depthIndexOffset: 1,
 	keywayHeight: 307,
-	keyBlankLength: 1250,
+	keywayLength: 1250,
 	cutterWheel: {
 		foreAngle: 44,
 		aftAngle: 44,
@@ -66,10 +79,51 @@ lockview.medecoLockspec = lockview.schlageLockspec.amend({
 	}
 });
 
+lockview.bestA2Lockspec = lockview.schlageLockspec.amend({
+	pinTipRadius: 30,
+	numPins: 7,
+	numDepths: 10,
+	pinTipRadius: 44,
+	depths: [318,305.5,293,280.5,268,255.5,243,230.5,218,205.5,193, 180.5, 168, 155.5, 143, 130.5, 118, 105.5, 93, 80.5],
+	spaces: [88,238,388,538,688,838,988].map(v=>v+200),
+	pinStackHeight: 500,
+	keywayHeight: 318,
+	keywayLength: 1350,
+	totalLockHeight: 1100,
+	totalLockLength: 1500,
+	constantDriverHeight: false,
+	cutterWheel: {
+		foreAngle: 45,
+		aftAngle: 45,
+		foreLen: 20,
+		aftLen: 20,
+	},
+	icCollar: {
+		present: false,
+		pins: [0,1,2,3,4,5,6], // Zero-indexed! 
+		depth: 10,
+		amend: function(params){return lockview.shallowcopy_change_vals(this,params);}
+	},
+});
+
+lockview.bestA4Lockspec = lockview.bestA2Lockspec.amend({
+	numDepths: 10,
+	depths: [318,297,276,255,234,213,192,171,150,129,108,87],
+	pinStackHeight: 500,
+	constantDriverHeight: false,
+	icCollar: {
+		present: false,
+		pins: [0,1,2,3,4,5,6], // Zero-indexed! 
+		depth: 6,
+		amend: function(params){return lockview.shallowcopy_change_vals(this,params);}
+	},
+});
+
 lockview.style = {
 	keyPin: {fill: "#DDDD00", stroke: 'black'},
 	driverPin: {fill: "#CCCCCC", stroke: 'black'},
 	masterWafer: {fill: "#FF4444", stroke: 'black'},
+	unknownPins: {fill: "#FFFFFF", stroke: 'black', 'stroke-width': 3, 'stroke-dasharray': 4},
 	plug: {fill: "#555555", stroke: 'black'},
 	housing: {fill: "#888888", stroke: 'black'},
 	icCollar: {fill: "#8888FF", stroke: 'black'}
@@ -79,7 +133,8 @@ lockview.defaultViewOpts = {
 	style: lockview.style,
 	keyRemovable: true,
 	width: 750,
-	cutaway: false,
+	cutaway: true,
+	unknownPinstackBinds: false,
 	controls: {
 		moveKey: true,
 		tryTurn: true,
@@ -92,13 +147,15 @@ lockview.defaultViewOpts = {
 	amend: function(params){return lockview.shallowcopy_change_vals(this,params);}
 }
 
-lockview.lockSpecFromNumPins = function(numPins, numDepths) {
+lockview.lockSpecFromNumPins = function(numPins, numDepths, offset) {
+	offset = offset || 0;
 	return lockview.schlageLockspec.amend({
 		numPins: numPins,
 		numDepths: numDepths,
+		depthIndexOffset: offset,
 		spaces: [...Array(numPins).keys()].map(x=>231+156*x),
-		depths: [...Array(numDepths).keys()].map(x=>335-x*(135/(numDepths-1))),
-		keyBlankLength: 156*numPins+280,
+		depths: Array(offset).fill(0).concat([...Array(numDepths).keys()].map(x=>335-x*((numDepths<4?84:135)/(numDepths-1)))),
+		keywayLength: 156*numPins+280,
 		totalLockLength: 156*numPins+520
 	});
 }
@@ -113,6 +170,7 @@ lockview.exampleShearLines = [
 lockview.exampleKeyCode = [2,4,5,3,1];
 
 lockview.upperPin = function(svg, lockspec, pinIndex, height, length, styleAttrs) {
+	if(length<=0) console.log("WARNING: non positive upper pin length: "+length);
 	var pin = svg.group();
 	pin.rect(lockspec.pinDia, length)
 		.translate(lockspec.spaces[pinIndex] - lockspec.pinDia/2, -height-length)
@@ -120,6 +178,7 @@ lockview.upperPin = function(svg, lockspec, pinIndex, height, length, styleAttrs
 	return pin;
 }
 lockview.keyPin = function(svg, lockspec, pinIndex, height, length, styleAttrs) {
+	if(length<=0) console.log("WARNING: non positive key pin length: "+length);
 	pinEdgeAngleRadians = lockspec.pinEdgeAngle / 180 * Math.PI;
 	edgeSlope = Math.tan(pinEdgeAngleRadians);
 	halfChordLen = Math.sin(pinEdgeAngleRadians) * lockspec.pinTipRadius;
@@ -162,29 +221,40 @@ lockview.pinsFromShears = function(svg, lockspec, knownShears, tipHeights) {
 	var pinStacks = [];
 	for(var i in knownShears) {
 		var pinStack = [];
-		sortedShears = knownShears[i].sort();
-		pinStack.push(lockview.keyPin(svg, lockspec, i, tipHeights[i], lockspec.plugDia - lockspec.depths[sortedShears[0]], lockview.style.keyPin));
-		for(j in sortedShears) {
-			if(j == 0) continue;
+		sortedShears = knownShears[i].sort((a,b)=>a-b);
+		if(sortedShears.length > 0 && !isNaN(sortedShears[0])) {
+			pinStack.push(lockview.keyPin(svg, lockspec, i, tipHeights[i], lockspec.plugDia - lockspec.depths[sortedShears[0]], lockview.style.keyPin));
+			for(j in sortedShears) {
+				if(j == 0) continue;
+				pinStack.push(
+					lockview.upperPin(svg, lockspec, i, 
+						tipHeights[i] + lockspec.plugDia - lockspec.depths[sortedShears[j-1]], 
+						lockspec.depths[sortedShears[j-1]] - lockspec.depths[sortedShears[j]], 
+						lockview.style.masterWafer
+					)
+				);
+			}
 			pinStack.push(
 				lockview.upperPin(svg, lockspec, i, 
-					tipHeights[i] + lockspec.plugDia - lockspec.depths[sortedShears[j-1]], 
-					lockspec.depths[sortedShears[j-1]] - lockspec.depths[sortedShears[j]], 
-					lockview.style.masterWafer
+					tipHeights[i] + lockspec.plugDia - lockspec.depths[sortedShears[sortedShears.length-1]], 
+					lockspec.constantDriverHeight
+						? lockspec.driverHeight
+						: lockspec.pinStackHeight - lockspec.plugDia + lockspec.depths[sortedShears[sortedShears.length-1]]
+					, 
+					lockview.style.driverPin
 				)
 			);
+			pinStack.push(lockview.pinSpring(svg, lockspec, i, lockspec.plugDia + lockspec.housingPinStackLength - lockview.getPinStackHeight(lockspec, sortedShears) - tipHeights[i]));
+		} else {
+			pinStack.push(lockview.keyPin(svg, lockspec, i, -lockspec.pinStackHeight, lockspec.pinStackHeight, lockview.style.unknownPins));
+			//pinStack.push(svg.rect().attr({visibility: "hidden"}));
+			pinStack.push(svg.rect().attr({visibility: "hidden"}));
+			/*pinStack.push(svg
+				.text("?")
+				.translate(lockspec.spaces[i] - lockspec.pinDia/2, lockspec.plugDia)
+			);*/
+			pinStack.push(lockview.pinSpring(svg, lockspec, i, lockspec.plugDia + lockspec.housingPinStackLength));
 		}
-		pinStack.push(
-			lockview.upperPin(svg, lockspec, i, 
-				tipHeights[i] + lockspec.plugDia - lockspec.depths[sortedShears[sortedShears.length-1]], 
-				lockspec.constantDriverHeight
-					? lockspec.driverHeight
-					: lockspec.pinStackHeight - lockspec.plugDia + lockspec.depths[sortedShears[sortedShears.length-1]]
-				, 
-				lockview.style.driverPin
-			)
-		);
-		pinStack.push(lockview.pinSpring(svg, lockspec, i, lockspec.plugDia + lockspec.housingPinStackLength - lockview.getPinStackHeight(lockspec, sortedShears) - tipHeights[i]));
 		pinStacks.push(pinStack);
 	}
 	return pinStacks;
@@ -207,7 +277,7 @@ lockview.lockPlug = function(svg, lockspec) {
 			).attr(lockview.style.plug)
 	}
 	plug.rect(
-			lockspec.keyBlankLength - lockspec.spaces[i-1] - lockspec.pinDia/2 - lockspec.pinSideSlop, 
+			lockspec.keywayLength - lockspec.spaces[i-1] - lockspec.pinDia/2 - lockspec.pinSideSlop, 
 			lockspec.plugDia-lockspec.keywayHeight
 		).translate(
 			lockspec.spaces[i-1] + lockspec.pinDia/2 + lockspec.pinSideSlop,
@@ -219,7 +289,7 @@ lockview.lockHousing = function(svg, lockspec) {
 	housing = svg.group();
 	housing.path(
 		  "M 0 "+lockspec.plugRadiusSlop
-		+" h "+lockspec.keyBlankLength
+		+" h "+lockspec.keywayLength
 		+" v -"+(lockspec.plugDia+2*lockspec.plugRadiusSlop)
 		+lockspec.spaces.slice(0,lockspec.numPins).reverse().reduce(
 			(a,v)=>a+
@@ -273,7 +343,7 @@ lockview.ICCollar = function(svg, lockspec, styleAttrs) {
 	).attr(styleAttrs);
 	collar.rect( // Bottom of Collar
 		-spacesAugmented[icStart]*1.5+(spacesAugmented[icStart+1]-lockspec.pinDia+spacesAugmented[icEnd+1]+spacesAugmented[icEnd]+lockspec.pinDia)/2,
-		collarThickness
+		collarThickness > lockspec.housingBelowKeywayThickness ? lockspec.housingBelowKeywayThickness / 2 : collarThickness
 	).translate(
 		lockspec.spaces[icStart]-(spacesAugmented[icStart+1]-spacesAugmented[icStart])/2,
 		lockspec.pinSideSlop
@@ -299,12 +369,14 @@ lockview.ICCollar = function(svg, lockspec, styleAttrs) {
 }
 
 lockview.keyProfile = function(lockspec, code) {
+	if(!lockspec.keyBlankLength) lockspec.keyBlankLength = lockspec.keywayLength;
 	points=[[0,0]];
 	
 	leadingM = -Math.tan(lockspec.cutterWheel.aftAngle / 180 * Math.PI);
 	laggingM = Math.tan(lockspec.cutterWheel.foreAngle / 180 * Math.PI);
 	
 	cutCoords = code
+		.slice(0, lockspec.numCuts ? lockspec.numCuts : lockspec.numPins)
 		.map((v,i)=>[lockspec.spaces[i],lockspec.depths[v]])
 		.concat([[lockspec.keyBlankLength + lockspec.cutterWheel.foreLen, lockspec.keyTipIntercept]]);
 	
@@ -363,6 +435,7 @@ lockview.pinHeightAtPosition = function(lockspec, code, position) {
 		.reduce((v,a)=>Math.min(v,a), lockspec.keywayHeight - lockspec.pinRestHeight);
 }
 lockview.drawKey = function(svg, lockspec, code, text) {
+	if(!lockspec.keyBlankLength) lockspec.keyBlankLength = lockspec.keywayLength;
 	key = svg.group();
 	key.path(
 		lockview.keyProfile(lockspec, code).map(
@@ -448,7 +521,7 @@ lockview.redrawKey = function(newCode, newStamp) {
 	this.moveKey(this.keyPosition); 
 	this.svgElements.side.front();
 	if(this.viewopts.controls.setCode) {
-		[...Array(this.lockspec.numPins).keys()].forEach(j=>document.getElementById(this.containerId+"_cut_"+j).value = newCode[j]);
+		[...Array(this.lockspec.numCuts ? this.lockspec.numCuts : this.lockspec.numPins).keys()].forEach(j=>document.getElementById(this.containerId+"_cut_"+j).value = newCode[j]);
 	}
 
 }
@@ -459,15 +532,17 @@ lockview.redrawPins = function(newShears) {
 	this.svgElements.pins = lockview.pinsFromShears(this.svgElements.scaled, this.lockspec, this.lockShears, Array(this.lockspec.numPins).fill(this.lockspec.pinRestHeight));
 	this.moveKey(this.keyPosition); 
 }
-lockview.calcBinding = function(code, shears) {
-	return [...code.keys()].filter(i=>!shears[i].includes(code[i]));
+lockview.calcBinding = function(code, shears, lockspec, unknownPinstackBinds) {
+	cutCode = code.slice(0, lockspec.numCuts ? lockspec.numCuts : Infinity)
+	if(shears.length > cutCode.length) return [...Array(shears.length - cutCode.length).keys()].map(x=>x+cutCode.length);
+	return [...shears.keys()].filter(i=>!shears[i].includes(code[i]) && ((shears[i].length > 0 && !isNaN(shears[i][0])) || unknownPinstackBinds));
 }
 lockview.calcICBinding = function(code, shears, collarPins, collarDepth) {
-	return [...code.keys()].filter(i=>collarPins.includes(i) && !shears[i].includes(code[i]+collarDepth));
+	return [...Array(Math.min(shears.length, code.length)).keys()].filter(i=>collarPins.includes(i) && !shears[i].includes(code[i]+collarDepth) && ((shears[i].length > 0 && !isNaN(shears[i][0])) || unknownPinstackBinds));
 }
 lockview.tryTurn = function(drawingInfo) {
 	drawingInfo = drawingInfo || this;
-	binding = lockview.calcBinding(drawingInfo.keyCode, drawingInfo.lockShears);
+	binding = lockview.calcBinding(drawingInfo.keyCode, drawingInfo.lockShears, drawingInfo.lockspec, drawingInfo.viewopts.unknownPinstackBinds);
 	drawingInfo.clearShearMarks();
 	if(Math.abs(drawingInfo.svgElements.key.x() + drawingInfo.svgElements.key.width() - drawingInfo.lockspec.keyBlankLength) > 5) {
 		document.getElementById(drawingInfo.containerId+"_txtTryTurn").innerHTML = "Key not inserted.";
@@ -483,7 +558,7 @@ lockview.tryTurn = function(drawingInfo) {
 	}
 	if(binding.length == 0) {
 		drawingInfo.bindingSVGLines.push(drawingInfo.svgElements.scaled
-			.line(0, 0, drawingInfo.lockspec.spaces[drawingInfo.lockspec.numPins-1] - drawingInfo.lockspec.spaces[0] + drawingInfo.lockspec.pinDia, 0)
+			.line(0, 0, drawingInfo.lockspec.spaces[drawingInfo.lockspec.numCuts-1] - drawingInfo.lockspec.spaces[0] + drawingInfo.lockspec.pinDia, 0)
 			.translate(drawingInfo.lockspec.spaces[0] - drawingInfo.lockspec.pinDia/2, -drawingInfo.lockspec.plugDia)
 			.stroke({color: "#88FF00", width: 30, linecap:'round'})
 			.attr({'stroke-opacity':"70%"}));
@@ -521,13 +596,13 @@ lockview.impression = function(drawingInfo) {
 		return;
 	}
 
-	binding = lockview.calcBinding(drawingInfo.keyCode, drawingInfo.lockShears);
+	binding = lockview.calcBinding(drawingInfo.keyCode, drawingInfo.lockShears, drawingInfo.lockspec, drawingInfo.viewopts.unknownPinstackBinds);
 	if(binding.length == 0) return;
 	bindingPin = binding[0];
 	return drawingInfo.svgElements.key
-		.line(0, 0, drawingInfo.lockspec.pinTipRadius, 0)
+		.line(0, 0, drawingInfo.lockspec.pinTipRadius*0.7, 0)
 		.translate(
-			drawingInfo.lockspec.spaces[bindingPin] - drawingInfo.lockspec.pinTipRadius/2, 
+			drawingInfo.lockspec.spaces[bindingPin] - drawingInfo.lockspec.pinTipRadius*0.35, 
 			drawingInfo.lockspec.keywayHeight - drawingInfo.lockspec.depths[drawingInfo.keyCode[bindingPin]] + 6
 		)
 		.stroke({color: "#77EE00", width: 12, linecap:'round'});
@@ -547,7 +622,8 @@ lockview.clearMarks = function(drawingInfo) {
 }
 
 lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears, keyStamp) {
-	if(keyCode.length !== lockspec.numPins) console.log("WARNING: key code length does not match number of pins.");
+	if(!lockspec.numCuts) lockspec.numCuts = lockspec.numPins;
+	if(keyCode.length !== lockspec.numCuts ? lockspec.numCuts : lockspec.numPins) console.log("WARNING: key code length does not match number of pins.");
 	if(lockShears.length !== lockspec.numPins) console.log("WARNING: lock shears array length does not match number of pins.");
 	if(!document.getElementById(containerId)) console.log("WARNING: ID '"+containerId+"' not found in the document.");
 	document.getElementById(containerId).innerHTML = 
@@ -556,7 +632,7 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 		 ) : "")
 		+((viewopts.controls.setCode) ? (
 			 "<div style='background-color:#FFFF00;border: 1px solid #888888;border-radius: 5px;margin: 3px;padding: 3px;display:inline-block'>"
-			+"Key Code: "+(keyCode.map((v,i)=>"Cut "+(i+1)+": <input type='number' id='"+containerId+"_cut_"+i+"' value='"+v+"' min='0' max='"+(lockspec.numDepths-1)+"' style='width:40px;' /> ").join(""))+"</div>"
+			+"Key Code: "+(keyCode.slice(0, lockspec.numCuts).map((v,i)=>"Cut "+(i+1)+": <input type='number' id='"+containerId+"_cut_"+i+"' value='"+v+"' min='"+lockspec.depthIndexOffset+"' max='"+(lockspec.numDepths-1+lockspec.depthIndexOffset)+"' style='width:40px;' /> ").join(""))+"</div>"
 		 ) : "")
 		+((viewopts.controls.setShearLines) ? (
 			 "<div style='background-color:#FF8866;border: 1px solid #888888;border-radius: 5px;margin: 3px;padding: 3px;display:inline-block'>"
@@ -570,7 +646,7 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 		+((viewopts.controls.impression) ? ("<button id='"+containerId+"_btnImpression'>Impression</button> ") : "")
 		+((viewopts.controls.tryTurn || viewopts.controls.impression) ? ("<span id='"+containerId+"_txtTryTurn'></span>") : "")
 		+((viewopts.controls.toggleCutaway) ? (" | <label><input type='checkbox' id='"+containerId+"_chkCutaway' "+(viewopts.cutaway?"checked":"")+" style=''>Cutaway Lock</label><br />") : "")
-		+((viewopts.controls.moveKey && viewopts.keyRemovable) ? ("<input type='range' id='"+containerId+"_slider' style='width:700px;'>") : "")
+		+((viewopts.controls.moveKey && viewopts.keyRemovable) ? ("<input type='range' id='"+containerId+"_slider' style='width:"+viewopts.width+"px;'>") : "")
 		;
 	var draw = SVG().addTo('#'+containerId).size(viewopts.width, viewopts.width*0.55);
 	var scaled = draw.group();
@@ -618,8 +694,8 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 		scaled.scale(drawingInfo.scale, 0, 0).translate(drawingInfo.svgElements.key.width() * drawingInfo.scale, lockspec.totalLockHeight * drawingInfo.scale);
 		draw.size(viewopts.width, Math.max(lockspec.totalLockHeight + lockspec.housingBelowKeywayThickness, lockspec.keywayHeight - drawingInfo.svgElements.key.y()+drawingInfo.svgElements.key.height()) * drawingInfo.scale);
 	} else {
-		drawingInfo.scale = viewopts.width / (drawingInfo.svgElements.key.width() - lockspec.keyBlankLength + lockspec.totalLockLength);
-		scaled.scale(drawingInfo.scale, 0, 0).translate((drawingInfo.svgElements.key.width() - lockspec.keyBlankLength) * drawingInfo.scale, lockspec.totalLockHeight * drawingInfo.scale);
+		drawingInfo.scale = viewopts.width / (drawingInfo.svgElements.key.width() - lockspec.keywayLength + lockspec.totalLockLength);
+		scaled.scale(drawingInfo.scale, 0, 0).translate((drawingInfo.svgElements.key.width() - lockspec.keywayLength) * drawingInfo.scale, lockspec.totalLockHeight * drawingInfo.scale);
 		draw.size(viewopts.width, Math.max(lockspec.totalLockHeight + lockspec.housingBelowKeywayThickness, lockspec.keywayHeight - drawingInfo.svgElements.key.y()+drawingInfo.svgElements.key.height()) * drawingInfo.scale);
 	}
 	
@@ -631,8 +707,14 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 	});
 	
 	for(var i=0; i<lockspec.numPins; i++) {
-		if(viewopts.controls.setCode) document.getElementById(containerId+"_cut_"+i).addEventListener("input", function() {drawingInfo.redrawKey([...new Array(lockspec.numPins).keys()].map(i=>parseInt(document.getElementById(containerId+"_cut_"+i).value)), drawingInfo.keyStamp)});
-		if(viewopts.controls.setShearLines) document.getElementById(containerId+"_shear_"+i).addEventListener("input", function() {drawingInfo.redrawPins([...new Array(lockspec.numPins).keys()].map(i=>document.getElementById(containerId+"_shear_"+i).value.split(",").map(v=>parseInt(v))))});
+		if(viewopts.controls.setCode && i<lockspec.numCuts && i<keyCode.length)
+			document.getElementById(containerId+"_cut_"+i).addEventListener("input", function() {
+				drawingInfo.redrawKey([...new Array(lockspec.numPins).keys()].slice(0, Math.min(keyCode.length, lockspec.numCuts)).map(i=>parseInt(document.getElementById(containerId+"_cut_"+i).value-lockspec.depthIndexOffset)), drawingInfo.keyStamp)
+			});
+		if(viewopts.controls.setShearLines && i<lockShears.length)
+			document.getElementById(containerId+"_shear_"+i).addEventListener("input", function() {
+				drawingInfo.redrawPins([...new Array(lockspec.numPins).keys()].slice(lockShears.length).map(i=>document.getElementById(containerId+"_shear_"+i).value.split(",").map(v=>parseInt(v))))
+			});
 	}
 	if(viewopts.controls.moveKey && viewopts.keyRemovable) {
 		document.getElementById(containerId+"_btnKeyOut").addEventListener("click", function() {lockview.keyOut(drawingInfo)});
@@ -662,8 +744,10 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 			viewopts.keyBank[i].SVGGroup.scale(100/viewopts.keyBank[i].SVGGroup.width(), 0, 0);
 			document.getElementById(containerId+"_keyBank_"+i).dataset.stamp = viewopts.keyBank[i].stamp;
 			document.getElementById(containerId+"_keyBank_"+i).dataset.code = JSON.stringify(viewopts.keyBank[i].code);
+			if(viewopts.keyBank[i].amendLockspec) document.getElementById(containerId+"_keyBank_"+i).dataset.amendLockspec = JSON.stringify(viewopts.keyBank[i].amendLockspec);
 			document.getElementById(containerId+"_keyBank_"+i).addEventListener("click", function() {
 				var code = JSON.parse(this.dataset.code);
+				if(this.dataset.amendLockspec) drawingInfo.lockspec = drawingInfo.lockspec.amend(JSON.parse(this.dataset.amendLockspec));
 				drawingInfo.redrawKey(code, this.dataset.stamp);
 			});
 		}
