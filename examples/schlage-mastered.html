@@ -1,0 +1,19 @@
+<html>
+<head>
+<script src="svg.min.js"></script>
+<script src="../lockview.js"></script>
+<script>
+function createLocks() {
+	l0 = lockview.addLock('lock0', lockview.schlageLockspec, lockview.defaultViewOpts.amend({
+			keyBank: [
+				{code: [2,2,3,9,9], stamp: "GMK", name: "Master"},
+				{code: lockview.exampleKeyCode, stamp: "AA1", name: "Change Key"}
+			]
+		}), lockview.exampleKeyCode, lockview.exampleShearLines, "AA1");
+}
+</script>
+</head>
+<body onload="createLocks();">
+<div id='lock0'></div>
+</body>
+</html>

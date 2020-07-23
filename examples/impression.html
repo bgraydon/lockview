@@ -1,0 +1,36 @@
+<html>
+<head>
+<script src="svg.min.js"></script>
+<script src="../lockview.js"></script>
+<script>
+function randbetween(low, high) {
+	return low + Math.floor(Math.random() * (high-low));
+}
+function randomCode(pins, depths, MACS) {
+	code = [];
+	code.push(randbetween(0, depths));
+	for(var i=1; i<pins; i++) {
+		code.push(randbetween(Math.max(0, code[i-1] - MACS), Math.min(depths - 1, code[i-1] + MACS)));
+	}
+	return code;
+}
+function createLocks() {
+	l0 = lockview.addLock('lock0', lockview.lockSpecFromNumPins(5,6), 
+		lockview.defaultViewOpts.amend({
+			cutaway: false,
+			controls: lockview.defaultViewOpts.controls.amend({setShearLines: false})
+		}), 
+		[0,0,0,0,0], randomCode(5,6,4).map(v=>[v]), "");
+}
+function newLock() {
+	l0.redrawKey([0,0,0,0,0],"");
+	l0.redrawPins(randomCode(5,6,4).map(v=>[v]));
+	l0.svgElements.side.front();
+}
+</script>
+</head>
+<body onload="createLocks();">
+<button onclick='newLock()'>Generate New Lock to Impression</button>
+<div id='lock0'></div>
+</body>
+</html>

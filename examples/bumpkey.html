@@ -1,0 +1,14 @@
+<html>
+<head>
+<script src="svg.min.js"></script>
+<script src="../lockview.js"></script>
+<script>
+function createLocks() {
+	l0 = lockview.addLock('lock0', lockview.schlageLockspec, lockview.defaultViewOpts, [9,9,9,9,9,9], [[2],[4],[5],[3],[1]], "BUMP");
+}
+</script>
+</head>
+<body onload="createLocks();">
+<div id='lock0'></div>
+</body>
+</html>

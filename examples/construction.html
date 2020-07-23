@@ -1,0 +1,50 @@
+<html>
+<head>
+<script src="svg.min.js"></script>
+<script src="../lockview.js"></script>
+<script>
+function createLocks() {
+	// Override pin drawing function to draw a round ball bearing in position 1
+	lockview.squareUpperPin = lockview.upperPin;
+	lockview.upperPin = function(svg, lockspec, pinIndex, height, length, styleAttrs) {
+		if(pinIndex == 0 && styleAttrs == lockview.style.masterWafer) {
+			var pin = svg.group();
+			pin.circle(length)
+				.translate(lockspec.spaces[pinIndex] - length/2, -height-length)
+				.attr(styleAttrs);
+			return pin;
+		}
+		return lockview.squareUpperPin(svg, lockspec, pinIndex, height, length, styleAttrs);
+	}
+	// Override key turn function to disappear the ball bearing if key turned
+	lockview.tryTurnNoConstruction = lockview.tryTurn;
+	lockview.tryTurn = function(drawingInfo) {
+		drawingInfo = drawingInfo || this;
+		binding = lockview.calcBinding(drawingInfo.keyCode, drawingInfo.lockShears);
+		if(binding.length == 0) {
+			if(drawingInfo.keyCode[0] == drawingInfo.lockShears[0][0]) {
+				drawingInfo.lockShears[0].splice(1,1); // Remove ball bearing
+				drawingInfo.redrawPins();
+			}
+		}
+		return lockview.tryTurnNoConstruction(drawingInfo);
+	}
+
+	l1 = lockview.addLock('lock0', 
+		lockview.schlageLockspec.amend({
+			constantDriverHeight: true
+		}), 
+		lockview.defaultViewOpts.amend({
+			keyBank: [
+				{code: [2,4,9,4,3], stamp: "GMK", name: "Owner's Key"},
+				{code: [6,4,9,4,3], stamp: "CMK", name: "Construction Master"}
+			]
+		}),
+		[6,4,9,4,3], [[2,6],[2,4],[1,9],[4,6],[3,7]], "CMK");
+}
+</script>
+</head>
+<body onload="createLocks();">
+<div id='lock0'></div>
+</body>
+</html>
