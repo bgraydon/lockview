@@ -523,7 +523,7 @@ lockview.redrawKey = function(newCode, newStamp) {
 	if(this.viewopts.controls.setCode) {
 		[...Array(this.lockspec.numCuts ? this.lockspec.numCuts : this.lockspec.numPins).keys()].forEach(j=>document.getElementById(this.containerId+"_cut_"+j).value = newCode[j]);
 	}
-
+	this.events.keyCodeChanged(newCode);
 }
 lockview.redrawPins = function(newShears) {
 	if(newShears)
@@ -531,6 +531,7 @@ lockview.redrawPins = function(newShears) {
 	this.svgElements.pins.forEach(stack=>stack.forEach(pin=>pin.remove()));
 	this.svgElements.pins = lockview.pinsFromShears(this.svgElements.scaled, this.lockspec, this.lockShears, Array(this.lockspec.numPins).fill(this.lockspec.pinRestHeight));
 	this.moveKey(this.keyPosition); 
+	this.events.lockShearsChanged(newShears);
 }
 lockview.calcBinding = function(code, shears, lockspec, unknownPinstackBinds) {
 	cutCode = code.slice(0, lockspec.numCuts ? lockspec.numCuts : Infinity)
@@ -583,6 +584,7 @@ lockview.tryTurn = function(drawingInfo) {
 			textStatus = (binding.length == 0) ? "IC Collar spins freely" : "IC Core Released";
 		}
 	}
+	drawingInfo.events.tryTurn(textStatus);
 	document.getElementById(drawingInfo.containerId+"_txtTryTurn").innerHTML = textStatus;
 	if(!drawingInfo.viewopts.cutaway) {
 		drawingInfo.clearShearMarks();
@@ -599,6 +601,7 @@ lockview.impression = function(drawingInfo) {
 	binding = lockview.calcBinding(drawingInfo.keyCode, drawingInfo.lockShears, drawingInfo.lockspec, drawingInfo.viewopts.unknownPinstackBinds);
 	if(binding.length == 0) return;
 	bindingPin = binding[0];
+	drawingInfo.events.impression([bindingPin]);
 	return drawingInfo.svgElements.key
 		.line(0, 0, drawingInfo.lockspec.pinTipRadius*0.7, 0)
 		.translate(
@@ -623,7 +626,7 @@ lockview.clearMarks = function(drawingInfo) {
 
 lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears, keyStamp) {
 	if(!lockspec.numCuts) lockspec.numCuts = lockspec.numPins;
-	if(keyCode.length !== lockspec.numCuts ? lockspec.numCuts : lockspec.numPins) console.log("WARNING: key code length does not match number of pins.");
+	if(keyCode.length !== (lockspec.numCuts ? lockspec.numCuts : lockspec.numPins)) console.log("WARNING: key code length does not match number of pins.");
 	if(lockShears.length !== lockspec.numPins) console.log("WARNING: lock shears array length does not match number of pins.");
 	if(!document.getElementById(containerId)) console.log("WARNING: ID '"+containerId+"' not found in the document.");
 	document.getElementById(containerId).innerHTML = 
@@ -669,11 +672,21 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 		impression: lockview.impression,
 		clearShearMarks: function(){this.bindingSVGLines.map(v=>v.remove()); this.bindingSVGLines=[];},
 		keyPosition: 0,
+		events: {
+			keyMoved: function(position) {},
+			keyCodeChanged: function(newCode) {},
+			lockShearsChanged: function(newShears) {},
+			keyFromBankSelected: function(bankItem) {},
+			tryTurn: function(result) {},
+			impression: function(markPositions) {},
+			cutawayChanged: function(isCutaway) {}
+		},
 		moveKey: function(position) {
 			this.keyPosition = position;
 			lockview.raisePinsByKey(drawingInfo, position);
 			drawingInfo.svgElements.key.x(lockspec.keyBlankLength - position - drawingInfo.svgElements.key.width());
 			drawingInfo.clearShearMarks();
+			this.events.keyMoved(position);
 		},
 		activeIntervals: []
 	};
@@ -704,6 +717,7 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 	if(viewopts.controls.toggleCutaway) document.getElementById(containerId+"_chkCutaway").addEventListener("change", function() {
 		drawingInfo.svgElements.side.attr({visibility: this.checked ? "hidden" : "visible"});
 		drawingInfo.viewopts.cutaway = this.checked;
+		drawingInfo.events.cutawayChanged(this.checked);
 	});
 	
 	for(var i=0; i<lockspec.numPins; i++) {
@@ -713,7 +727,7 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 			});
 		if(viewopts.controls.setShearLines && i<lockShears.length)
 			document.getElementById(containerId+"_shear_"+i).addEventListener("input", function() {
-				drawingInfo.redrawPins([...new Array(lockspec.numPins).keys()].slice(lockShears.length).map(i=>document.getElementById(containerId+"_shear_"+i).value.split(",").map(v=>parseInt(v))))
+				drawingInfo.redrawPins([...new Array(lockspec.numPins).keys()].slice(0, lockShears.length).map(i=>document.getElementById(containerId+"_shear_"+i).value.split(",").map(v=>parseInt(v))))
 			});
 	}
 	if(viewopts.controls.moveKey && viewopts.keyRemovable) {
@@ -742,6 +756,7 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 					viewopts.keyBank[i].SVGGroup.height() + viewopts.keyBank[i].SVGKey.y() + 100
 				)
 			viewopts.keyBank[i].SVGGroup.scale(100/viewopts.keyBank[i].SVGGroup.width(), 0, 0);
+			document.getElementById(containerId+"_keyBank_"+i).dataset.bankIndex = i;
 			document.getElementById(containerId+"_keyBank_"+i).dataset.stamp = viewopts.keyBank[i].stamp;
 			document.getElementById(containerId+"_keyBank_"+i).dataset.code = JSON.stringify(viewopts.keyBank[i].code);
 			if(viewopts.keyBank[i].amendLockspec) document.getElementById(containerId+"_keyBank_"+i).dataset.amendLockspec = JSON.stringify(viewopts.keyBank[i].amendLockspec);
@@ -749,6 +764,7 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 				var code = JSON.parse(this.dataset.code);
 				if(this.dataset.amendLockspec) drawingInfo.lockspec = drawingInfo.lockspec.amend(JSON.parse(this.dataset.amendLockspec));
 				drawingInfo.redrawKey(code, this.dataset.stamp);
+				drawingInfo.events.keyFromBankSelected(drawingInfo.viewopts.keyBank[this.dataset.bankIndex]);
 			});
 		}
 	}
