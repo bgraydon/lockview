@@ -1,0 +1,259 @@
+<html>
+<head>
+<script src="svg.min.js"></script>
+<script src="../lockview.js"></script>
+<script src="https://ggrsecurity.com/personal/~bgraydon/keyspace/rules.js"></script>
+<script>
+function randbetween(low, high) {
+	return low + Math.floor(Math.random() * (high-low));
+}
+function randomCode(pins, depths, MACS) {
+	code = [];
+	code.push(randbetween(0, depths));
+	for(var i=1; i<pins; i++) {
+		code.push(randbetween(Math.max(0, code[i-1] - MACS), Math.min(depths - 1, code[i-1] + MACS)));
+	}
+	return code;
+}
+function createLocks() {
+	var code = randomCode(5,10,7);
+	l0 = lockview.addLock('lock0', lockview.lockSpecFromNumPins(5,10).amend({keywayLength: 1070}), 
+		lockview.defaultViewOpts.amend({
+			controls: lockview.defaultViewOpts.controls.amend({setShearLines: false})
+		}), 
+		code, code.map(v=>[v]), "");
+		
+		
+	ridgesSVG = SVG().addTo('#ridges').size(l0.viewopts.width+5, 76);
+	clicksSVG = SVG().addTo('#clicks').size(l0.viewopts.width+5, 76);
+	
+	ridgesSVG.rect(ridgesSVG.width(), ridgesSVG.height()).fill('black');
+	clicksSVG.rect(clicksSVG.width(), clicksSVG.height()).fill('black');
+	
+	ridgeGroup = ridgesSVG.group();
+	pinsGroup = ridgesSVG.group().translate(l0.svgElements.key.width() * l0.scale);
+	for(i in l0.lockspec.spaces) {
+		pinsGroup.line(l0.lockspec.spaces[i] * l0.scale, 13, l0.lockspec.spaces[i] * l0.scale, 63).stroke('green').attr({'stroke-width':3});
+		pinsGroup.text("PIN "+(parseInt(i)+1)).font({family:'sans-serif', size: '9pt', anchor: 'middle', fill: 'green'}).translate(l0.lockspec.spaces[i] * l0.scale, -5);
+	}
+	
+	ridges = [];
+	ridgeNames = [];
+	ridgeLines = [];
+	clickLines = [];
+	timeLine = clicksSVG.line(0, 13, 0, 63).stroke('#44FF00').attr({'stroke-width':3});
+
+	l0.events.keyMoved = function(position) {
+		ridgeGroup.x((l0.svgElements.key.width() - position) * l0.scale);
+		timeLine.x((1 - position / l0.lockspec.keywayLength) * l0.viewopts.width);
+	};
+	
+	(l0.events.keyCodeChanged = function(code) {
+		l0.redrawPins(code.map(v=>[v]));
+		profile = lockview.keyProfile(l0.lockspec,l0.keyCode);
+		ridgeLines.forEach(r=>r.remove()); ridgeLines=[]; ridgeNames=[]; ridges=[];
+		clickLines.forEach(c=>c.remove()); clickLines=[];
+		for(i in profile.slice(0,-1)) {
+			i=parseInt(i);
+			if(i==0 || profile[i-1][1] > profile[i][1] || profile[i+1][1] > profile[i][1]) {
+				ridgeLines.push(ridgeGroup.line(profile[i][0]*l0.scale, 13, profile[i][0]*l0.scale, 63).stroke(i==0?'black':'white'));
+				if(profile[i][0] > l0.lockspec.spaces[0]) {
+					pinAfter = l0.lockspec.spaces.findIndex(x=>x>profile[i][0]);
+					if(pinAfter == -1)
+						ridgeNames.push(l0.lockspec.spaces.length + "+");
+					else if(pinAfter == 0)
+						ridgeNames.push("1-");
+					else if(profile[i-1][1] > profile[i][1] && profile[i+1][1] > profile[i][1])
+						ridgeNames.push(pinAfter+"-"+(pinAfter+1));
+					else if(profile[i+1][1] > profile[i][1])
+						ridgeNames.push((pinAfter+1)+"-");
+					else
+						ridgeNames.push(pinAfter+"+");
+					ridgeLines.push(ridgeGroup.text(ridgeNames.slice(-1)[0]).font({family:'sans-serif', size: '9pt', anchor: 'middle', fill: 'white'}).translate(profile[i][0]*l0.scale, 58));
+					ridges.push(profile[i][0]);
+				}
+			}
+		}
+		
+		analyseInformationFromRidges(ridges, ridgeNames, l0.lockspec);
+		
+		l0.events.keyMoved(l0.keyPosition);
+		for(i in l0.lockspec.spaces) {
+			for(j in ridges) {
+				var t = ridges[j] - l0.lockspec.spaces[i];
+				if(t > 0) {
+					t = (1 - t/l0.lockspec.keywayLength) * l0.viewopts.width;
+					clickLines.push(clicksSVG.line(t, 13, t, 63).stroke('blue'));
+					clickLines.push(clicksSVG.text(""+(parseInt(i)+1)).font({family:'sans-serif', size: '9pt', anchor: 'middle', fill: 'green'}).translate(t, -5));
+					clickLines.push(clicksSVG.text(ridgeNames[j]).font({family:'sans-serif', size: '9pt', anchor: 'middle', fill: 'white'}).translate(t, 58));
+				}
+			}
+		}
+	})(code);
+}
+
+function analyseInformationFromRidges(ridges, ridgeNames, lockspec) {
+	leadingM = -Math.tan(lockspec.cutterWheel.aftAngle / 180 * Math.PI);
+	laggingM = Math.tan(lockspec.cutterWheel.foreAngle / 180 * Math.PI);
+
+	knownAbs = Array(lockspec.numPins).fill(-1);
+	knownAbsRuleRefs = Array(lockspec.numPins).fill(-1);
+	knownDeltas = [];
+
+	deduction = "<ol class='rulesList'>";
+	ruleNum = 1;
+
+	delta = analyseRidgeIntersection(ridges.slice(-1)[0], lockspec.spaces.slice(-1)[0] + lockspec.cutterWheel.aftLen, lockspec.keyBlankLength, leadingM, Math.tan(lockspec.keyTipAngle / 180 * Math.PI));	
+	deduction += "<li>From ridge "+ridgeNames.slice(-1)[0]+", delta from end of key's sloped edge ("+(lockspec.keyTipIntercept)+" "+lockspec.unit+" from base) to last ridge is "+(-delta)+", making cut "+lockspec.numPins+" "+(lockspec.keyTipIntercept - delta)+" "+lockspec.unit+" from base, a bitting "+closestCutDepth(lockspec, lockspec.keyTipIntercept - delta)+".</li>";
+	knownAbs[lockspec.numPins - 1] = closestCutDepth(lockspec, lockspec.keyTipIntercept - delta);
+	knownAbsRuleRefs[lockspec.numPins - 1] = ruleNum++;
+	
+	for(i=lockspec.numPins-1;i>0;i--) {
+		ridgesBetween = (ridges.map((v,i)=>{return {v:v,i:i}}).filter(x=>x.v>lockspec.spaces[i-1] && x.v<lockspec.spaces[i]));
+		if(ridgesBetween.length == 2) {
+			delta1 = analyseRidgeIntersection(ridgesBetween[1].v, lockspec.spaces[i] - lockspec.cutterWheel.foreLen, lockspec.spaces[i] - lockspec.cutterWheel.foreLen, 0, laggingM);
+			deduction += "<li>From ridge "+ridgeNames[ridgesBetween[1].i]+", 2 of 2 ridges between cuts "+i+" and "+(i+1)+", the delta from top of key to cut "+(i+1)+" is "+(delta1)+" for a depth of "+(lockspec.keywayHeight+delta1)+", making cut "+(i+1)+" bitting "+closestCutDepth(lockspec, lockspec.keywayHeight+delta1)+".</li>";
+			knownAbs[i] = closestCutDepth(lockspec, lockspec.keywayHeight+delta1);
+			knownAbsRuleRefs[i] = ruleNum++;
+			delta0 = analyseRidgeIntersection(ridgesBetween[0].v, lockspec.spaces[i-1] + lockspec.cutterWheel.aftLen, lockspec.spaces[i-1] + lockspec.cutterWheel.aftLen, leadingM, 0);
+			deduction += "<li>From ridge "+ridgeNames[ridgesBetween[0].i]+", 1 of 2 ridges between cuts "+i+" and "+(i+1)+", the delta from top of key to cut "+i+" is "+(-delta0)+" for a depth of "+(lockspec.keywayHeight-delta0)+", making cut "+i+" bitting "+closestCutDepth(lockspec, lockspec.keywayHeight-delta0)+".</li>";
+			knownAbs[i-1] = closestCutDepth(lockspec, lockspec.keywayHeight-delta0);
+			knownAbsRuleRefs[i-1] = ruleNum++;
+		}
+		if(ridgesBetween.length == 1) {
+			deltaMid = analyseRidgeIntersection(ridgesBetween[0].v, lockspec.spaces[i-1] + lockspec.cutterWheel.aftLen, lockspec.spaces[i] - lockspec.cutterWheel.foreLen, leadingM, laggingM);
+			delta0Left = analyseRidgeIntersection(ridgesBetween[0].v, lockspec.spaces[i-1] + lockspec.cutterWheel.aftLen, lockspec.spaces[i] - lockspec.cutterWheel.foreLen, 0, laggingM);
+			delta0Right = analyseRidgeIntersection(ridgesBetween[0].v, lockspec.spaces[i-1] + lockspec.cutterWheel.aftLen, lockspec.spaces[i] - lockspec.cutterWheel.foreLen, leadingM, 0);
+			deduction += "<li>From ridge "+ridgeNames[ridgesBetween[0].i]+", the only ridge between cuts "+i+" and "+(i+1)+", either a) the delta from cut "+i+" to cut "+(i+1)+" is "+(deltaMid)+" for a bitting difference of "+bittingDifference(lockspec, deltaMid)+", or b) cut "+i+" is a 0 and cut "+(i+1)+" is a "+(-bittingDifference(lockspec, delta0Left))+", or c) cut "+i+" is a "+bittingDifference(lockspec, delta0Right)+" and cut "+(i+1)+" is a 0.</li>";
+			knownDeltas.push({pin1: i-1, pin2: i, difference: bittingDifference(lockspec, deltaMid), or: [[0, -bittingDifference(lockspec, delta0Left)], [bittingDifference(lockspec, delta0Right), 0]], ruleNum: ruleNum++});
+			if(knownAbs[i]>=0 && knownDeltas.slice(-1)[0].or[0][1] != knownAbs[i] && knownDeltas.slice(-1)[0].or[1][1] != knownAbs[i]) {
+				deduction += "<li>Combining <span class='rulesLabel'>"+knownAbsRuleRefs[i]+"</span> and <span class='rulesLabel'>"+(ruleNum-1)+"</span>, gives a depth of "+(knownAbs[i] + knownDeltas.slice(-1)[0].difference)+" in pin "+(i)+".</li>";
+				knownAbs[i-1] = knownAbs[i] + knownDeltas.slice(-1)[0].difference;
+				knownAbsRuleRefs[i-1] = ruleNum++;				
+			}
+			if(knownAbs[i]==0 && (knownDeltas.slice(-1)[0].or[0][1] == 0 || knownDeltas.slice(-1)[0].or[1][1] == 0)) {
+				deduction += "<li>Combining <span class='rulesLabel'>"+knownAbsRuleRefs[i]+"</span> and <span class='rulesLabel'>"+(ruleNum-1)+"</span>, gives a depth of "+(knownDeltas.slice(-1)[0].or.find(o=>o[1]==0)[0])+" in pin "+(i)+".</li>";
+				knownAbs[i-1] = knownDeltas.slice(-1)[0].or.find(o=>o[1]==0)[0];
+				knownAbsRuleRefs[i-1] = ruleNum++;				
+			}
+		}
+		if(ridgesBetween.length == 0) {
+			deduction += "<li>No ridges between cuts "+i+" and "+(i+1)+", therefore both are a 0 depth (or a MACS violation).</li>";
+			knownAbs[i-1] = 0;
+			knownAbsRuleRefs[i-1] = ruleNum;
+			knownAbs[i] = 0;
+			knownAbsRuleRefs[i] = ruleNum++;
+		}
+	}
+	for(i=1;i<lockspec.numPins;i++) {
+		delta = knownDeltas.find(d=>d.pin1==i-1 && d.pin2==i);
+		if(knownAbs[i-1]>=0 && knownAbs[i]<0 && delta && delta.or[0][0] != knownAbs[i-1] && delta.or[1][0] != knownAbs[i-1]) {
+			deduction += "<li>Combining <span class='rulesLabel'>"+knownAbsRuleRefs[i-1]+"</span> and <span class='rulesLabel'>"+(delta.ruleNum)+"</span>, gives a depth of "+(knownAbs[i-1] - delta.difference)+" in pin "+(i+1)+".</li>";
+			knownAbs[i] = knownAbs[i-1] - delta.difference;
+			knownAbsRuleRefs[i] = ruleNum++;				
+		}
+		if(knownAbs[i-1]==0 && knownAbs[i]<0 && delta && (delta.or[0][0] == 0 || delta.or[1][0] == 0)) {
+			deduction += "<li>Combining <span class='rulesLabel'>"+knownAbsRuleRefs[i-1]+"</span> and <span class='rulesLabel'>"+(delta.ruleNum)+"</span>, gives a depth of "+(delta.or.find(o=>o[0]==0)[1])+" in pin "+(i+1)+".</li>";
+			knownAbs[i] = delta.or.find(o=>o[0]==0)[1];
+			knownAbsRuleRefs[i] = ruleNum++;		
+		}
+	}
+	deduction += "</ol>";
+	document.getElementById('deduction').innerHTML = deduction;
+	
+	if(!knownAbs.find(a=>a==-1)) {
+		document.getElementById('rules').innerHTML = 'Decoded key: <div style="background-color:#FFFF00;border: 1px solid #888888;border-radius: 5px;margin: 3px;padding: 3px;display:inline-block">'+knownAbs.join("")+'</div>';
+	} else {
+		rules = [];
+		if(!knownAbs.every(a=>a==-1))
+			rules.push({name: 'shear', nonMK: false, shears: knownAbs.map(a=>a==-1 ? "" : a+"")});
+		for(i in knownDeltas) {
+			rules.push({name: 'photoDelt', pin1: knownDeltas[i].pin1, pin2: knownDeltas[i].pin2, range: Array(2).fill(knownDeltas[i].difference), orAbs: knownDeltas[i].or});
+		}
+		system = {"numPins":5,"numDepths":10,"lockType":"pin","labelOffset":0,"rules":rules};
+		list = "System to load into KeySpace: <br /><textarea style='width:100%'>"+JSON.stringify(system)+"</textarea><br />";
+		
+		if(rule_html) {
+			space = []; pspace = false; numDepths = 10; numPins = 5;
+			list += "Remaining rules to narrow down key space: <div id='spacelist'>";
+			for(i in rules) {
+				rule_html(rules[i], i+1);
+			}
+			list += "</div>";
+		}
+		
+		list += "<a href='https://ggrsecurity.com/personal/~bgraydon/keyspace?"+encodeURIComponent(JSON.stringify(system))+"' target='_blank'><button class='btn default'>Open in KeySpace</button></a>";
+		document.getElementById('rules').innerHTML = list;
+	}
+}
+function analyseRidgeIntersection(ridge, X0, X1, leadingM, laggingM) {
+	//console.log(ridge, X0, X1, leadingM, laggingM);
+	//intersectionX = (prevPoint[1] - point0[1] - leadingM*prevPoint[0] + laggingM*point0[0]) / (laggingM - leadingM);
+	//ridge = (delta - leadingM*X0 + laggingM*X1) / (laggingM - leadingM);
+
+	if(X0<ridge && ridge<X1) { // Intercept between fore and aft cut corner: peaked ridge
+		delta = ridge * (laggingM - leadingM) + leadingM*X0 - laggingM*X1;
+	} else if(X0>=ridge) { // Second cut impedes on first cut's corner: lagging ridge, leadingM = 0.
+		delta = ridge*laggingM - laggingM*X1;		
+	} else { // First cut impedes on second cut's corner: leading ridge, laggingM = 0.
+		delta = -ridge*leadingM + leadingM*X0;
+	}
+
+	//console.log(delta);
+	return delta;
+}
+function closestCutDepth(lockspec, depth) {
+	return lockspec.depths.indexOf(lockspec.depths.reduce(function(prev, curr) {
+		return (Math.abs(curr - depth) < Math.abs(prev - depth) ? curr : prev);
+	}));
+}
+function bittingDifference(lockspec, delta) {
+	if(delta > 0)
+		return closestCutDepth(lockspec, lockspec.keywayHeight - delta);
+	else
+		return -closestCutDepth(lockspec, delta + lockspec.keywayHeight);
+}
+
+
+function newLock() {
+	var code = randomCode(5,10,7);
+	l0.redrawKey(code,"");
+	l0.redrawPins(code.map(v=>[v]));
+	l0.svgElements.side.front();
+}
+</script>
+<style>
+ol.rulesList {list-style: none; counter-reset: li}
+.rulesList li::before {
+	content: counter(li);
+	display: inline-block; 
+	width: 1.1em;
+	height: 1.1em;
+	margin-left: -1.2em;
+	border:1px solid black;
+	border-radius:100%;
+	text-align:center;
+}
+.rulesList li {counter-increment: li}
+.rulesLabel {border:1px solid black;border-radius:100%;width:1.1em;height:1.1em;display:inline-block;text-align:center;}
+
+#spacelist>div,div.rule {
+	border:1px solid #888888;
+	border-radius:5px;
+	margin:3px;
+	padding:3px;
+	overflow:auto;
+}
+</style>
+</head>
+<body onload="createLocks();">
+<button onclick='newLock()'>Generate New Random Lock</button>
+<div id='lock0'></div>
+Ridge and pin spacing: <br />
+<div id='ridges'></div>
+Click timeline (length of timeline is the time it takes to insert the key): <br />
+<div id='clicks'></div><br />
+<div id='deduction'></div>
+<div id='rules'></div>
+</body>
+</html>

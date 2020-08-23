@@ -641,6 +641,7 @@ lockview.addLock = function(containerId, lockspec, viewopts, keyCode, lockShears
 			 "<div style='background-color:#FF8866;border: 1px solid #888888;border-radius: 5px;margin: 3px;padding: 3px;display:inline-block'>"
 			+"Shear Lines: "+(lockShears.map((v,i)=>"Pin "+(i+1)+": <input id='"+containerId+"_shear_"+i+"' value='"+v.join()+"' style='width:40px;' /> ").join(""))+"</div><br />"
 		 ) : "")
+		+((viewopts.controls.setCode || viewopts.controls.setShearLines) ? ("<br id='"+containerId+"_brAfterCode' />") : "")
 		+((viewopts.controls.moveKey && viewopts.keyRemovable) ? (
 			 "<button id='"+containerId+"_btnKeyIn'>Key in</button>"
 			+"<button id='"+containerId+"_btnKeyOut'>Key out</button> | "
