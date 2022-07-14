@@ -79,6 +79,39 @@ lockview.medecoLockspec = lockview.schlageLockspec.amend({
 	}
 });
 
+lockview.mulTLockInteractiveLockspec = lockview.schlageLockspec.amend({
+	pinTipRadius: 3,
+	numPins: 6,
+	numDepths: 6,
+	depths: [0,115,94,77,57,37],
+	pinRestHeight: 37,
+	depthIndexOffset: 1,
+	keywayHeight: 98,
+	cutterWheel: {
+		foreAngle: 45,
+		aftAngle: 45,
+		foreLen: 45,
+		aftLen: 45
+	}
+});
+
+lockview.movingElementExampleLockspec = lockview.schlageLockspec.amend({
+	pinTipRadius: 40,
+	numPins: 5,
+	numDepths: 5,
+	depths: [335,305,275,245,215,0,0,0,0],
+	spaces: [231,387,543,699,855,0,0,0,0,0],
+	pinRestHeight: 210,
+	depthIndexOffset: 0,
+	keywayHeight: 305,
+	cutterWheel: {
+		foreAngle: 45,
+		aftAngle: 45,
+		foreLen: 35,
+		aftLen: 35
+	}
+});
+
 lockview.bestA2Lockspec = lockview.schlageLockspec.amend({
 	pinTipRadius: 30,
 	numPins: 7,
@@ -380,32 +413,37 @@ lockview.keyProfile = function(lockspec, code) {
 		.map((v,i)=>[lockspec.spaces[i],lockspec.depths[v]])
 		.concat([[lockspec.keyBlankLength + lockspec.cutterWheel.foreLen, lockspec.keyTipIntercept]]);
 	
+	var prevProtrusion = 1;
 	for(var i in cutCoords) {
+		var protrusion = (cutCoords[i][1] > lockspec.keywayHeight) ? -1 : 1;
+		var leadingMForPin = leadingM*prevProtrusion;
+		var laggingMForPin = laggingM*protrusion;
 		if(i == cutCoords.length - 1) {
-			laggingM = Math.tan(lockspec.keyTipAngle / 180 * Math.PI);
+			laggingM = laggingMForPin = Math.tan(lockspec.keyTipAngle / 180 * Math.PI);
 		}
-	
+		
 		prevPoint = points[points.length - 1];
 		point0 = ([cutCoords[i][0] - lockspec.cutterWheel.foreLen, lockspec.keywayHeight - cutCoords[i][1]]);
 		point1 = ([cutCoords[i][0] + lockspec.cutterWheel.aftLen, lockspec.keywayHeight - cutCoords[i][1]]);
 		intersectionX = (prevPoint[1] - point0[1] - leadingM*prevPoint[0] + laggingM*point0[0]) / (laggingM - leadingM);
 		if(intersectionX >= prevPoint[0] && intersectionX <= point0[0]) {
-			intersectionY = leadingM*(intersectionX - prevPoint[0]) + prevPoint[1];
+			intersectionY = leadingMForPin*(intersectionX - prevPoint[0]) + prevPoint[1];
 			if(intersectionY < 0) {
 				if(prevPoint[0] !== 0)
-					points.push([-prevPoint[1]/leadingM + prevPoint[0], 0]);
-				points.push([-point0[1]/laggingM + point0[0], 0]);
+					points.push([-prevPoint[1]/leadingMForPin + prevPoint[0], 0]);
+				points.push([-point0[1]/laggingMForPin + point0[0], 0]);
 			} else {
 				points.push([intersectionX, intersectionY]);
 			}
 			points.push(point0);
 		} else if(intersectionX <= point0[0]) {
-			prevPoint[0] = (prevPoint[1] - point0[1])/laggingM + point0[0];
+			prevPoint[0] = (prevPoint[1] - point0[1])/laggingMForPin + point0[0];
 			points.push(point0);
 		} else {
-			points.push([(point0[1] - prevPoint[1])/leadingM + prevPoint[0], point0[1]]);
+			points.push([(point0[1] - prevPoint[1])/leadingMForPin + prevPoint[0], point0[1]]);
 		}
 		points.push(point1);
+		prevProtrusion = protrusion;
 	}
 	points.pop();
 	return points;
