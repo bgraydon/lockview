@@ -4,6 +4,41 @@
 <script src="../lockview.js"></script>
 <script>
 function createLocks() {
+	lockview.drawKey = function(svg, lockspec, code, text) {
+		if(!lockspec.keyBlankLength) lockspec.keyBlankLength = lockspec.keywayLength;
+		key = svg.group();
+		key.path(
+			lockview.keyProfile(lockspec, code).map(
+				(v,i)=>
+				" "+(i?"L":"M")+" "+v[0]+" "+v[1]
+			)
+			.join("")
+			.concat(" V "+(lockspec.keywayHeight - lockspec.keyTipClipIntercept))
+			.concat(" H "+(lockspec.spaces[3] - lockspec.pinDia/2 - 10))
+			.concat(" L "+(lockspec.spaces[3] - lockspec.pinDia/2 - 10 - lockspec.keyTipClipIntercept * Math.tan(lockspec.keyTipClipAngle / 180 * Math.PI))+" "+lockspec.keywayHeight)
+			.concat(" H 0")
+			.concat(lockspec.keyShoulderHeadSVG)
+		)
+		.stroke("black")
+		.fill("yellow")
+		.attr({"fill-rule":"nonzero"});
+		
+		key.rect(lockspec.pinDia, lockspec.keywayHeight).translate(lockspec.spaces[3] - lockspec.pinDia/2, 0).stroke("black").fill("orange");
+		
+		text = text || "";
+		key.text(text)
+			.font({ fill: '#000000', family: 'sans-serif', size: '140pt', anchor: 'middle'})
+			.rotate(-90)
+			.translate(-350, -30)
+			
+		key.translate(0, -lockspec.keywayHeight);
+		//key.polyline([...Array(lockspec.keyBlankLength+100).keys()].map(v=>v+","+(2*335-lockview.pinHeightAtPosition(lockspec, code,v))).join(" ")).fill('none').stroke({width: 2, color:'green'}).translate(0,-lockspec.keywayHeight);
+		return key;
+	}
+
+
+
+
 	l0 = lockview.addLock('lock0', lockview.movingElementExampleLockspec, lockview.defaultViewOpts.amend({
 			keyBank: [
 				{code: [4,3,2,0,2], stamp: "KEY", name: "Key with protrusion"},
