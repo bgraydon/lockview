@@ -1,0 +1,21 @@
+<html>
+<head>
+<script src="svg.min.js"></script>
+<script src="../lockview.js"></script>
+<script>
+function createLocks() {
+	l0 = lockview.addLock('lock0', lockview.movingElementExampleLockspec, lockview.defaultViewOpts.amend({
+			keyBank: [
+				{code: [4,3,2,0,2], stamp: "KEY", name: "Key with protrusion"},
+				{code: [4,3,2,1,2], stamp: "KEY", name: "Key without protrusion"},
+				{code: [1,1,1,1,1], stamp: "BLANK", name: "Blank"},
+				{code: [1,1,1,0,1], stamp: "BLANK", name: "Blank with protrusion"}
+			]
+		}), [1,1,1,1,1], [[4],[3],[2],[0],[2]], "KEY");
+}
+</script>
+</head>
+<body onload="createLocks();">
+<div id='lock0'></div>
+</body>
+</html>
